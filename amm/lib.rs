@@ -91,9 +91,37 @@ mod amm {
             }
         }        
         // Part 5. Faucet
+        /// Sends free token(s) to the invoker
+        #[ink(message)]
+        pub fn faucet(&mut self, _amountToken1: Balance, _amountToken2: Balance) {
+            let caller = self.env().caller();
+            let token1 = *self.token1Balance.get(&caller).unwrap_or(&0);
+            let token2 = *self.token2Balance.get(&caller).unwrap_or(&0);
 
+            self.token1Balance.insert(caller, token1 + _amountToken1);
+            self.token2Balance.insert(caller, token2 + _amountToken2);
+        }
         // Part 6. Read current state
+        /// Returns the balance of the user
+        #[ink(message)]
+        pub fn getMyHoldings(&self) -> (Balance, Balance, Balance) {
+            let caller = self.env().caller();
+            let token1 = *self.token1Balance.get(&caller).unwrap_or(&0);
+            let token2 = *self.token2Balance.get(&caller).unwrap_or(&0);
+            let myShares = *self.shares.get(&caller).unwrap_or(&0);
+            (token1, token2, myShares)
+        }
 
+        /// Returns the amount of tokens locked in the pool,total shares issued & trading fee param
+        #[ink(message)]
+        pub fn getPoolDetails(&self) -> (Balance, Balance, Balance, Balance) {
+            (
+                self.totalToken1,
+                self.totalToken2,
+                self.totalShares,
+                self.fees,
+            )
+        }
         // Part 7. Provide
 
         // Part 8. Withdraw
