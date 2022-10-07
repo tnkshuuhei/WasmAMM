@@ -168,8 +168,6 @@ mod amm {
 
             Ok(share)
         }
-
-        // Part 8. Withdraw
         /// Returns amount of Token1 required when providing liquidity with _amountToken2 quantity of Token2
         #[ink(message)]
         pub fn getEquivalentToken1Estimate(
@@ -189,7 +187,44 @@ mod amm {
             self.activePool()?;
             Ok(self.totalToken2 * _amountToken1 / self.totalToken1)
         }
-        
+
+        // Part 8. Withdraw
+        /// Returns the estimate of Token1 & Token2 that will be released on burning given _share
+        #[ink(message)]
+        pub fn getWithdrawEstimate(&self, _share: Balance) -> Result<(Balance, Balance), Error> {
+            self.activePool()?;
+            if _share > self.totalShares {
+                return Err(Error::InvalidShare);
+            }
+
+            let amountToken1 = _share * self.totalToken1 / self.totalShares;
+            let amountToken2 = _share * self.totalToken2 / self.totalShares;
+            Ok((amountToken1, amountToken2))
+        }
+
+        /// Removes liquidity from the pool and releases corresponding Token1 & Token2 to the withdrawer
+        #[ink(message)]
+        pub fn withdraw(&mut self, _share: Balance) -> Result<(Balance, Balance), Error> {
+            let caller = self.env().caller();
+            self.validAmountCheck(&self.shares, _share)?;
+
+            let (amountToken1, amountToken2) = self.getWithdrawEstimate(_share)?;
+            self.shares.entry(caller).and_modify(|val| *val -= _share);
+            self.totalShares -= _share;
+
+            self.totalToken1 -= amountToken1;
+            self.totalToken2 -= amountToken2;
+
+            self.token1Balance
+                .entry(caller)
+                .and_modify(|val| *val += amountToken1);
+            self.token2Balance
+                .entry(caller)
+                .and_modify(|val| *val += amountToken2);
+
+            Ok((amountToken1, amountToken2))
+        }
+
         // Part 9. Swap
 
         /// Constructor that initializes the `bool` value to the given `init_value`.
