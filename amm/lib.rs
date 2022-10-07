@@ -28,6 +28,7 @@ mod amm {
         token2Balance: HashMap<AccountId, Balance>, // Stores the token2 balance of each user
         fees: Balance,        // Percent of trading fees charged on trade
     }
+
     #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum Error {
@@ -48,10 +49,47 @@ mod amm {
         /// Slippage tolerance exceeded
         SlippageExceeded,
     }
-
+    #[ink(impl)]
     impl Amm {
-        // Part 4. Constructor
+    // Ensures that the _qty is non-zero and the user has enough balance
+    fn validAmountCheck(
+        &self,
+        _balance: &HashMap<AccountId, Balance>,
+        _qty: Balance,
+    ) -> Result<(), Error> {
+        let caller = self.env().caller();
+        let my_balance = *_balance.get(&caller).unwrap_or(&0);
 
+        match _qty {
+            0 => Err(Error::ZeroAmount),
+            _ if _qty > my_balance => Err(Error::InsufficientAmount),
+            _ => Ok(()),
+        }
+    }
+
+    // Returns the liquidity constant of the pool
+    fn getK(&self) -> Balance {
+        self.totalToken1 * self.totalToken2
+    }
+
+    // Used to restrict withdraw & swap feature till liquidity is added to the pool
+    fn activePool(&self) -> Result<(), Error> {
+        match self.getK() {
+            0 => Err(Error::ZeroLiquidity),
+            _ => Ok(()),
+        }
+    }
+        // Part 4. Constructor
+        /// Constructs a new AMM instance
+        /// @param _fees: valid interval -> [0,1000)
+        #[ink(constructor)]
+        pub fn new(_fees: Balance) -> Self {
+            // Sets fees to zero if not in valid range
+            Self {
+                fees: if _fees >= 1000 { 0 } else { _fees },
+                ..Default::default()
+            }
+        }        
         // Part 5. Faucet
 
         // Part 6. Read current state
