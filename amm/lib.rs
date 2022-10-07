@@ -168,8 +168,28 @@ mod amm {
 
             Ok(share)
         }
-        // Part 8. Withdraw
 
+        // Part 8. Withdraw
+        /// Returns amount of Token1 required when providing liquidity with _amountToken2 quantity of Token2
+        #[ink(message)]
+        pub fn getEquivalentToken1Estimate(
+            &self,
+            _amountToken2: Balance,
+        ) -> Result<Balance, Error> {
+            self.activePool()?;
+            Ok(self.totalToken1 * _amountToken2 / self.totalToken2)
+        }
+
+        /// Returns amount of Token2 required when providing liquidity with _amountToken1 quantity of Token1
+        #[ink(message)]
+        pub fn getEquivalentToken2Estimate(
+            &self,
+            _amountToken1: Balance,
+        ) -> Result<Balance, Error> {
+            self.activePool()?;
+            Ok(self.totalToken2 * _amountToken1 / self.totalToken1)
+        }
+        
         // Part 9. Swap
 
         /// Constructor that initializes the `bool` value to the given `init_value`.
