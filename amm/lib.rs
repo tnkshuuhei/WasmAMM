@@ -123,7 +123,51 @@ mod amm {
             )
         }
         // Part 7. Provide
+        /// Adding new liquidity in the pool
+        /// Returns the amount of share issued for locking given assets
+        #[ink(message)]
+        pub fn provide(
+            &mut self,
+            _amountToken1: Balance,
+            _amountToken2: Balance,
+        ) -> Result<Balance, Error> {
+            self.validAmountCheck(&self.token1Balance, _amountToken1)?;
+            self.validAmountCheck(&self.token2Balance, _amountToken2)?;
 
+            let share;
+            if self.totalShares == 0 {
+                // Genesis liquidity is issued 100 Shares
+                share = 100 * super::PRECISION;
+            } else {
+                let share1 = self.totalShares * _amountToken1 / self.totalToken1;
+                let share2 = self.totalShares * _amountToken2 / self.totalToken2;
+
+                if share1 != share2 {
+                    return Err(Error::NonEquivalentValue);
+                }
+                share = share1;
+            }
+
+            if share == 0 {
+                return Err(Error::ThresholdNotReached);
+            }
+
+            let caller = self.env().caller();
+            let token1 = *self.token1Balance.get(&caller).unwrap();
+            let token2 = *self.token2Balance.get(&caller).unwrap();
+            self.token1Balance.insert(caller, token1 - _amountToken1);
+            self.token2Balance.insert(caller, token2 - _amountToken2);
+
+            self.totalToken1 += _amountToken1;
+            self.totalToken2 += _amountToken2;
+            self.totalShares += share;
+            self.shares
+                .entry(caller)
+                .and_modify(|val| *val += share)
+                .or_insert(share);
+
+            Ok(share)
+        }
         // Part 8. Withdraw
 
         // Part 9. Swap
