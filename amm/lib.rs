@@ -226,7 +226,98 @@ mod amm {
         }
 
         // Part 9. Swap
+        /// Returns the amount of Token2 that the user will get when swapping a given amount of Token1 for Token2
+        #[ink(message)]
+        pub fn getSwapToken1EstimateGivenToken1(
+            &self,
+            _amountToken1: Balance,
+        ) -> Result<Balance, Error> {
+            self.activePool()?;
+            let _amountToken1 = (1000 - self.fees) * _amountToken1 / 1000; // Adjusting the fees charged
 
+            let token1After = self.totalToken1 + _amountToken1;
+            let token2After = self.getK() / token1After;
+            let mut amountToken2 = self.totalToken2 - token2After;
+
+            // To ensure that Token2's pool is not completely depleted leading to inf:0 ratio
+            if amountToken2 == self.totalToken2 {
+                amountToken2 -= 1;
+            }
+            Ok(amountToken2)
+        }
+
+        /// Returns the amount of Token1 that the user should swap to get _amountToken2 in return
+        #[ink(message)]
+        pub fn getSwapToken1EstimateGivenToken2(
+            &self,
+            _amountToken2: Balance,
+        ) -> Result<Balance, Error> {
+            self.activePool()?;
+            if _amountToken2 >= self.totalToken2 {
+                return Err(Error::InsufficientLiquidity);
+            }
+
+            let token2After = self.totalToken2 - _amountToken2;
+            let token1After = self.getK() / token2After;
+            let amountToken1 = (token1After - self.totalToken1) * 1000 / (1000 - self.fees);
+            Ok(amountToken1)
+        }
+
+        /// Swaps given amount of Token1 to Token2 using algorithmic price determination
+        /// Swap fails if Token2 amount is less than _minToken2
+        #[ink(message)]
+        pub fn swapToken1GivenToken1(
+            &mut self,
+            _amountToken1: Balance,
+            _minToken2: Balance,
+        ) -> Result<Balance, Error> {
+            let caller = self.env().caller();
+            self.validAmountCheck(&self.token1Balance, _amountToken1)?;
+
+            let amountToken2 = self.getSwapToken1EstimateGivenToken1(_amountToken1)?;
+            if amountToken2 < _minToken2 {
+                return Err(Error::SlippageExceeded);
+            }
+            self.token1Balance
+                .entry(caller)
+                .and_modify(|val| *val -= _amountToken1);
+
+            self.totalToken1 += _amountToken1;
+            self.totalToken2 -= amountToken2;
+
+            self.token2Balance
+                .entry(caller)
+                .and_modify(|val| *val += amountToken2);
+            Ok(amountToken2)
+        }
+
+        /// Swaps given amount of Token1 to Token2 using algorithmic price determination
+        /// Swap fails if amount of Token1 required to obtain _amountToken2 exceeds _maxToken1
+        #[ink(message)]
+        pub fn swapToken1GivenToken2(
+            &mut self,
+            _amountToken2: Balance,
+            _maxToken1: Balance,
+        ) -> Result<Balance, Error> {
+            let caller = self.env().caller();
+            let amountToken1 = self.getSwapToken1EstimateGivenToken2(_amountToken2)?;
+            if amountToken1 > _maxToken1 {
+                return Err(Error::SlippageExceeded);
+            }
+            self.validAmountCheck(&self.token1Balance, amountToken1)?;
+
+            self.token1Balance
+                .entry(caller)
+                .and_modify(|val| *val -= amountToken1);
+
+            self.totalToken1 += amountToken1;
+            self.totalToken2 -= _amountToken2;
+
+            self.token2Balance
+                .entry(caller)
+                .and_modify(|val| *val += _amountToken2);
+            Ok(amountToken1)
+        }
         /// Constructor that initializes the `bool` value to the given `init_value`.
         #[ink(constructor)]
         pub fn new(init_value: bool) -> Self {
