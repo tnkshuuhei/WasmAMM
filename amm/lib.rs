@@ -352,26 +352,79 @@ mod amm {
     /// The below code is technically just normal Rust code.
     #[cfg(test)]
     mod tests {
-        /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
-
-        /// Imports `ink_lang` so we can use `#[ink::test]`.
         use ink_lang as ink;
-
-        /// We test if the default constructor does its job.
+    
         #[ink::test]
-        fn default_works() {
-            let amm = Amm::default();
-            assert_eq!(amm.get(), false);
+        fn new_works() {
+            let contract = Amm::new(0);
+            assert_eq!(contract.getMyHoldings(), (0, 0, 0));
+            assert_eq!(contract.getPoolDetails(), (0, 0, 0, 0));
         }
-
-        /// We test a simple use case of our contract.
+    
         #[ink::test]
-        fn it_works() {
-            let mut amm = Amm::new(false);
-            assert_eq!(amm.get(), false);
-            amm.flip();
-            assert_eq!(amm.get(), true);
+        fn faucet_works() {
+            let mut contract = Amm::new(0);
+            contract.faucet(100, 200);
+            assert_eq!(contract.getMyHoldings(), (100, 200, 0));
+        }
+    
+        #[ink::test]
+        fn zero_liquidity_test() {
+            let contract = Amm::new(0);
+            let res = contract.getEquivalentToken1Estimate(5);
+            assert_eq!(res, Err(Error::ZeroLiquidity));
+        }
+    
+        #[ink::test]
+        fn provide_works() {
+            let mut contract = Amm::new(0);
+            contract.faucet(100, 200);
+            let share = contract.provide(10, 20).unwrap();
+            assert_eq!(share, 100_000_000);
+            assert_eq!(contract.getPoolDetails(), (10, 20, share, 0));
+            assert_eq!(contract.getMyHoldings(), (90, 180, share));
+        }
+    
+        #[ink::test]
+        fn withdraw_works() {
+            let mut contract = Amm::new(0);
+            contract.faucet(100, 200);
+            let share = contract.provide(10, 20).unwrap();
+            assert_eq!(contract.withdraw(share / 5).unwrap(), (2, 4));
+            assert_eq!(contract.getMyHoldings(), (92, 184, 4 * share / 5));
+            assert_eq!(contract.getPoolDetails(), (8, 16, 4 * share / 5, 0));
+        }
+    
+        #[ink::test]
+        fn swap_works() {
+            let mut contract = Amm::new(0);
+            contract.faucet(100, 200);
+            let share = contract.provide(50, 100).unwrap();
+            let amountToken2 = contract.swapToken1GivenToken1(50, 50).unwrap();
+            assert_eq!(amountToken2, 50);
+            assert_eq!(contract.getMyHoldings(), (0, 150, share));
+            assert_eq!(contract.getPoolDetails(), (100, 50, share, 0));
+        }
+    
+        #[ink::test]
+        fn slippage_works() {
+            let mut contract = Amm::new(0);
+            contract.faucet(100, 200);
+            let share = contract.provide(50, 100).unwrap();
+            let amountToken2 = contract.swapToken1GivenToken1(50, 51);
+            assert_eq!(amountToken2, Err(Error::SlippageExceeded));
+            assert_eq!(contract.getMyHoldings(), (50, 100, share));
+            assert_eq!(contract.getPoolDetails(), (50, 100, share, 0));
+        }
+    
+        #[ink::test]
+        fn trading_fees_works() {
+            let mut contract = Amm::new(100);
+            contract.faucet(100, 200);
+            contract.provide(50, 100).unwrap();
+            let amountToken2 = contract.getSwapToken1EstimateGivenToken1(50).unwrap();
+            assert_eq!(amountToken2, 48);
         }
     }
 }
