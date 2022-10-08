@@ -6,8 +6,8 @@ const PRECISION: u128 = 1_000_000; // Precision of 6 digits
 
 #[ink::contract]
 mod amm {
-    use ink_storage::collections::HashMap;
-
+    use ink_storage::traits::SpreadAllocate;
+    use ink_storage::Mapping;
     // Part 1. Define Error enum
     #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
@@ -30,29 +30,31 @@ mod amm {
         SlippageExceeded,
     }
     // Part 2. Define storage struct
-    #[derive(Default)]
+    #[derive(Default,SpreadAllocate)]
     #[ink(storage)]
+
     pub struct Amm {
         totalShares: Balance, // Stores the total amount of share issued for the pool
         totalToken1: Balance, // Stores the amount of Token1 locked in the pool
         totalToken2: Balance, // Stores the amount of Token2 locked in the pool
-        shares: HashMap<AccountId, Balance>, // Stores the share holding of each provider
-        token1Balance: HashMap<AccountId, Balance>, // Stores the token1 balance of each user
-        token2Balance: HashMap<AccountId, Balance>, // Stores the token2 balance of each user
+        shares: Mapping<AccountId, Balance>, // Stores the share holding of each provider
+        token1Balance:ink_storage:: Mapping<AccountId, Balance>, // Stores the token1 balance of each user
+        token2Balance:ink_storage:: Mapping<AccountId, Balance>, // Stores the token2 balance of each user
         fees: Balance,        // Percent of trading fees charged on trade
     }
 
     // Part 3. Helper functions
     #[ink(impl)]
     impl Amm {
+
         // Ensures that the _qty is non-zero and the user has enough balance
         fn validAmountCheck(
             &self,
-            _balance: &HashMap<AccountId, Balance>,
+            _balance: Mapping<AccountId, Balance>,
             _qty: Balance,
         ) -> Result<(), Error> {
             let caller = self.env().caller();
-            let my_balance = *_balance.get(&caller).unwrap_or(&0);
+            let my_balance = *_balance.get(&caller).unwrap_or(0);
 
             match _qty {
                 0 => Err(Error::ZeroAmount),
@@ -72,6 +74,14 @@ mod amm {
                 _ => Ok(()),
             }
         }
+        
+        
+        #[ink(constructor)]
+        pub fn default() -> Self {
+        // Even though we're not explicitly initializing the `Mapping`,
+        // we still need to call this
+        ink_lang::utils::initialize_contract(|_| {})
+        }
 
         // Part 4. Constructor
         /// Constructs a new AMM instance
@@ -89,8 +99,8 @@ mod amm {
         #[ink(message)]
         pub fn faucet(&mut self, _amountToken1: Balance, _amountToken2: Balance) {
             let caller = self.env().caller();
-            let token1 = *self.token1Balance.get(&caller).unwrap_or(&0);
-            let token2 = *self.token2Balance.get(&caller).unwrap_or(&0);
+            let token1 = *self.token1Balance.get(&caller).unwrap_or(0);
+            let token2 = *self.token2Balance.get(&caller).unwrap_or(0);
 
             self.token1Balance.insert(caller, token1 + _amountToken1);
             self.token2Balance.insert(caller, token2 + _amountToken2);
@@ -100,9 +110,9 @@ mod amm {
         #[ink(message)]
         pub fn getMyHoldings(&self) -> (Balance, Balance, Balance) {
             let caller = self.env().caller();
-            let token1 = *self.token1Balance.get(&caller).unwrap_or(&0);
-            let token2 = *self.token2Balance.get(&caller).unwrap_or(&0);
-            let myShares = *self.shares.get(&caller).unwrap_or(&0);
+            let token1 = *self.token1Balance.get(&caller).unwrap_or(0);
+            let token2 = *self.token2Balance.get(&caller).unwrap_or(0);
+            let myShares = *self.shares.get(&caller).unwrap_or(0);
             (token1, token2, myShares)
         }
 
@@ -125,8 +135,8 @@ mod amm {
             _amountToken1: Balance,
             _amountToken2: Balance,
         ) -> Result<Balance, Error> {
-            self.validAmountCheck(&self.token1Balance, _amountToken1)?;
-            self.validAmountCheck(&self.token2Balance, _amountToken2)?;
+            self.validAmountCheck(self.token1Balance, _amountToken1)?;
+            self.validAmountCheck(self.token2Balance, _amountToken2)?;
 
             let share;
             if self.totalShares == 0 {
@@ -200,7 +210,7 @@ mod amm {
         #[ink(message)]
         pub fn withdraw(&mut self, _share: Balance) -> Result<(Balance, Balance), Error> {
             let caller = self.env().caller();
-            self.validAmountCheck(&self.shares, _share)?;
+            self.validAmountCheck(self.shares, _share)?;
 
             let (amountToken1, amountToken2) = self.getWithdrawEstimate(_share)?;
             self.shares.entry(caller).and_modify(|val| *val -= _share);
@@ -266,7 +276,7 @@ mod amm {
             _minToken2: Balance,
         ) -> Result<Balance, Error> {
             let caller = self.env().caller();
-            self.validAmountCheck(&self.token1Balance, _amountToken1)?;
+            self.validAmountCheck(self.token1Balance, _amountToken1)?;
 
             let amountToken2 = self.getSwapToken1EstimateGivenToken1(_amountToken1)?;
             if amountToken2 < _minToken2 {
@@ -298,7 +308,7 @@ mod amm {
             if amountToken1 > _maxToken1 {
                 return Err(Error::SlippageExceeded);
             }
-            self.validAmountCheck(&self.token1Balance, amountToken1)?;
+            self.validAmountCheck(self.token1Balance, amountToken1)?;
 
             self.token1Balance
                 .entry(caller)
