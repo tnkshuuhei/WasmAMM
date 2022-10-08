@@ -8,7 +8,7 @@ const PRECISION: u128 = 1_000_000; // Precision of 6 digits
 mod amm {
     use ink_storage::collections::HashMap;
 
-    // Part 1. Define Error enum 
+    // Part 1. Define Error enum
     #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum Error {
@@ -29,23 +29,22 @@ mod amm {
         /// Slippage tolerance exceeded
         SlippageExceeded,
     }
-        // Part 2. Define storage struct 
-        #[derive(Default)]
-        #[ink(storage)]
-        pub struct Amm {
-            totalShares: Balance, // Stores the total amount of share issued for the pool
-            totalToken1: Balance, // Stores the amount of Token1 locked in the pool
-            totalToken2: Balance, // Stores the amount of Token2 locked in the pool
-            shares: HashMap<AccountId, Balance>, // Stores the share holding of each provider
-            token1Balance: HashMap<AccountId, Balance>, // Stores the token1 balance of each user
-            token2Balance: HashMap<AccountId, Balance>, // Stores the token2 balance of each user
-            fees: Balance,        // Percent of trading fees charged on trade
-        }
+    // Part 2. Define storage struct
+    #[derive(Default)]
+    #[ink(storage)]
+    pub struct Amm {
+        totalShares: Balance, // Stores the total amount of share issued for the pool
+        totalToken1: Balance, // Stores the amount of Token1 locked in the pool
+        totalToken2: Balance, // Stores the amount of Token2 locked in the pool
+        shares: HashMap<AccountId, Balance>, // Stores the share holding of each provider
+        token1Balance: HashMap<AccountId, Balance>, // Stores the token1 balance of each user
+        token2Balance: HashMap<AccountId, Balance>, // Stores the token2 balance of each user
+        fees: Balance,        // Percent of trading fees charged on trade
+    }
 
-        
-        // Part 3. Helper functions 
-        #[ink(impl)]
-        impl Amm {
+    // Part 3. Helper functions
+    #[ink(impl)]
+    impl Amm {
         // Ensures that the _qty is non-zero and the user has enough balance
         fn validAmountCheck(
             &self,
@@ -73,7 +72,7 @@ mod amm {
                 _ => Ok(()),
             }
         }
-    }
+
         // Part 4. Constructor
         /// Constructs a new AMM instance
         /// @param _fees: valid interval -> [0,1000)
@@ -313,7 +312,7 @@ mod amm {
                 .and_modify(|val| *val += _amountToken2);
             Ok(amountToken1)
         }
-    
+    }
 
     /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
     /// module and test functions are marked with a `#[test]` attribute.
@@ -322,28 +321,28 @@ mod amm {
     mod tests {
         use super::*;
         use ink_lang as ink;
-    
+
         #[ink::test]
         fn new_works() {
             let contract = Amm::new(0);
             assert_eq!(contract.getMyHoldings(), (0, 0, 0));
             assert_eq!(contract.getPoolDetails(), (0, 0, 0, 0));
         }
-    
+
         #[ink::test]
         fn faucet_works() {
             let mut contract = Amm::new(0);
             contract.faucet(100, 200);
             assert_eq!(contract.getMyHoldings(), (100, 200, 0));
         }
-    
+
         #[ink::test]
         fn zero_liquidity_test() {
             let contract = Amm::new(0);
             let res = contract.getEquivalentToken1Estimate(5);
             assert_eq!(res, Err(Error::ZeroLiquidity));
         }
-    
+
         #[ink::test]
         fn provide_works() {
             let mut contract = Amm::new(0);
@@ -353,7 +352,7 @@ mod amm {
             assert_eq!(contract.getPoolDetails(), (10, 20, share, 0));
             assert_eq!(contract.getMyHoldings(), (90, 180, share));
         }
-    
+
         #[ink::test]
         fn withdraw_works() {
             let mut contract = Amm::new(0);
@@ -363,7 +362,7 @@ mod amm {
             assert_eq!(contract.getMyHoldings(), (92, 184, 4 * share / 5));
             assert_eq!(contract.getPoolDetails(), (8, 16, 4 * share / 5, 0));
         }
-    
+
         #[ink::test]
         fn swap_works() {
             let mut contract = Amm::new(0);
@@ -374,7 +373,7 @@ mod amm {
             assert_eq!(contract.getMyHoldings(), (0, 150, share));
             assert_eq!(contract.getPoolDetails(), (100, 50, share, 0));
         }
-    
+
         #[ink::test]
         fn slippage_works() {
             let mut contract = Amm::new(0);
@@ -385,7 +384,7 @@ mod amm {
             assert_eq!(contract.getMyHoldings(), (50, 100, share));
             assert_eq!(contract.getPoolDetails(), (50, 100, share, 0));
         }
-    
+
         #[ink::test]
         fn trading_fees_works() {
             let mut contract = Amm::new(100);
