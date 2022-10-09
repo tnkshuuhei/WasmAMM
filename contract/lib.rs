@@ -54,7 +54,7 @@ mod amm {
             _qty: Balance,
         ) -> Result<(), Error> {
             let caller = self.env().caller();
-            let my_balance = *_balance.get(&caller).unwrap_or(0);
+            let my_balance = _balance.get(&caller).unwrap_or(0);
 
             match _qty {
                 0 => Err(Error::ZeroAmount),
@@ -99,20 +99,20 @@ mod amm {
         #[ink(message)]
         pub fn faucet(&mut self, _amountToken1: Balance, _amountToken2: Balance) {
             let caller = self.env().caller();
-            let token1 = *self.token1Balance.get(&caller).unwrap_or(0);
-            let token2 = *self.token2Balance.get(&caller).unwrap_or(0);
+            let token1 = self.token1Balance.get(&caller).unwrap_or(0);
+            let token2 = self.token2Balance.get(&caller).unwrap_or(0);
 
-            self.token1Balance.insert(caller, token1 + _amountToken1);
-            self.token2Balance.insert(caller, token2 + _amountToken2);
+            self.token1Balance.insert(caller, &(token1 + _amountToken1));
+            self.token2Balance.insert(caller, &(token2 + _amountToken2));
         }
         // Part 6. Read current state
         /// Returns the balance of the user
         #[ink(message)]
         pub fn getMyHoldings(&self) -> (Balance, Balance, Balance) {
             let caller = self.env().caller();
-            let token1 = *self.token1Balance.get(&caller).unwrap_or(0);
-            let token2 = *self.token2Balance.get(&caller).unwrap_or(0);
-            let myShares = *self.shares.get(&caller).unwrap_or(0);
+            let token1 = self.token1Balance.get(&caller).unwrap_or(0);
+            let token2 = self.token2Balance.get(&caller).unwrap_or(0);
+            let myShares = self.shares.get(&caller).unwrap_or(0);
             (token1, token2, myShares)
         }
 
@@ -157,10 +157,10 @@ mod amm {
             }
 
             let caller = self.env().caller();
-            let token1 = *self.token1Balance.get(&caller).unwrap();
-            let token2 = *self.token2Balance.get(&caller).unwrap();
-            self.token1Balance.insert(caller, token1 - _amountToken1);
-            self.token2Balance.insert(caller, token2 - _amountToken2);
+            let token1 = self.token1Balance.get(&caller).unwrap();
+            let token2 = self.token2Balance.get(&caller).unwrap();
+            self.token1Balance.insert(caller, &(token1 - _amountToken1));
+            self.token2Balance.insert(caller,  &(token2 - _amountToken2));
 
             self.totalToken1 += _amountToken1;
             self.totalToken2 += _amountToken2;
