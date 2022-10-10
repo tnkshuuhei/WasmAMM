@@ -38,8 +38,8 @@ mod amm {
         totalToken1: Balance, // Stores the amount of Token1 locked in the pool
         totalToken2: Balance, // Stores the amount of Token2 locked in the pool
         shares: Mapping<AccountId, Balance>, // Stores the share holding of each provider
-        token1Balance:ink_storage:: Mapping<AccountId, Balance>, // Stores the token1 balance of each user
-        token2Balance:ink_storage:: Mapping<AccountId, Balance>, // Stores the token2 balance of each user
+        token1Balance:Mapping<AccountId, Balance>, // Stores the token1 balance of each user
+        token2Balance:Mapping<AccountId, Balance>, // Stores the token2 balance of each user
         fees: Balance,        // Percent of trading fees charged on trade
     }
 
@@ -213,17 +213,18 @@ mod amm {
             self.validAmountCheck(self.shares, _share)?;
 
             let (amountToken1, amountToken2) = self.getWithdrawEstimate(_share)?;
-            self.shares.entry(caller).and_modify(|val| *val -= _share);
+            self.shares.get(caller).and_modify(|val| *val -= _share);
             self.totalShares -= _share;
 
-            self.totalToken1 -= amountToken1;
+            self.totalToken1 -= amountToken1; //totaltoken1(token in pool) = totalToken - amoutToken1(amount of withdrawal)
             self.totalToken2 -= amountToken2;
 
-            self.token1Balance
-                .entry(caller)
-                .and_modify(|val| *val += amountToken1);
+            self.token1Balance //Token1balance = amount of Token1 each user have
+                .get(caller)
+                .insert(caller, &(token1balance + amountToken1)); //insert Token1balance + amoutToken1 
+                //.and_modify(|val| *val += amountToken1);
             self.token2Balance
-                .entry(caller)
+                .entry(caller);
                 .and_modify(|val| *val += amountToken2);
 
             Ok((amountToken1, amountToken2))
