@@ -216,16 +216,18 @@ mod amm {
             self.shares.get(caller).and_modify(|val| *val -= _share);
             self.totalShares -= _share;
 
-            self.totalToken1 -= amountToken1; //totaltoken1(token in pool) = totalToken - amoutToken1(amount of withdrawal)
+            self.totalToken1 -= amountToken1; //totaltoken1(token in pool) = totalToken - amountToken1(amount of withdrawal)
             self.totalToken2 -= amountToken2;
 
             self.token1Balance //Token1balance = amount of Token1 each user have
                 .get(caller)
-                .insert(caller, &(token1balance + amountToken1)); //insert Token1balance + amoutToken1 
+                .insert(amountToken1 ); //insert Token1balance + amountToken1 
+                //.entry(caller)
                 //.and_modify(|val| *val += amountToken1);
             self.token2Balance
-                .entry(caller);
-                .and_modify(|val| *val += amountToken2);
+                .get(caller).insert(amountToken2);
+                //.entry(caller)
+                //.and_modify(|val| *val += amountToken2);
 
             Ok((amountToken1, amountToken2))
         }
