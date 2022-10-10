@@ -166,9 +166,9 @@ mod amm {
             self.totalToken2 += _amountToken2;
             self.totalShares += share;
             self.shares
-                .entry(caller)
-                .and_modify(|val| *val += share)
-                .or_insert(share);
+                .get(caller)
+                //.and_modify(|val| *val += share)
+                .insert(share);
 
             Ok(share)
         }
@@ -213,19 +213,22 @@ mod amm {
             self.validAmountCheck(self.shares, _share)?;
 
             let (amountToken1, amountToken2) = self.getWithdrawEstimate(_share)?;
+            //this logic is needed to modify.
             self.shares.get(caller).and_modify(|val| *val -= _share);
-            self.totalShares -= _share;
+            self.totalShares -= _share; //totalshare = totalshare - _share
 
             self.totalToken1 -= amountToken1; //totaltoken1(token in pool) = totalToken - amountToken1(amount of withdrawal)
             self.totalToken2 -= amountToken2;
 
-            self.token1Balance //Token1balance = amount of Token1 each user have
-                .get(caller)
-                .insert(amountToken1 ); //insert Token1balance + amountToken1 
+            let old_balance1 = self.token1Balance.get(&caller).unwrap();
+            self.token1Balance.insert(&caller, &(old_balance1 + amountToken1));
+            //self.token1Balance //Token1balance = amount of Token1 each user have
                 //.entry(caller)
                 //.and_modify(|val| *val += amountToken1);
-            self.token2Balance
-                .get(caller).insert(amountToken2);
+            
+            let old_balance2 = self.token2Balance.get(&caller).unwrap();
+            self.token2Balance.insert(&caller, &(old_balance2 + amountToken2));
+            //self.token2Balance
                 //.entry(caller)
                 //.and_modify(|val| *val += amountToken2);
 
@@ -285,16 +288,21 @@ mod amm {
             if amountToken2 < _minToken2 {
                 return Err(Error::SlippageExceeded);
             }
+            //this logic is needed to modify.
             self.token1Balance
-                .entry(caller)
-                .and_modify(|val| *val -= _amountToken1);
+                .get(caller)
+                .insert(_amountToken1);
+                //.entry(caller)
+                //.and_modify(|val| *val -= _amountToken1);
 
             self.totalToken1 += _amountToken1;
             self.totalToken2 -= amountToken2;
 
             self.token2Balance
-                .entry(caller)
-                .and_modify(|val| *val += amountToken2);
+                .get(caller)
+                .insert(amountToken2);
+                //.entry(caller)
+                //.and_modify(|val| *val += amountToken2);
             Ok(amountToken2)
         }
 
@@ -312,17 +320,22 @@ mod amm {
                 return Err(Error::SlippageExceeded);
             }
             self.validAmountCheck(self.token1Balance, amountToken1)?;
-
+            
+            //this logic is needed to modify.
             self.token1Balance
-                .entry(caller)
-                .and_modify(|val| *val -= amountToken1);
+                .get(caller)
+                .insert(amountToken1);
+                //.entry(caller)
+                //.and_modify(|val| *val -= amountToken1);
 
             self.totalToken1 += amountToken1;
             self.totalToken2 -= _amountToken2;
 
             self.token2Balance
-                .entry(caller)
-                .and_modify(|val| *val += _amountToken2);
+                .get(caller)
+                .insert(_amountToken2);
+                //.entry(caller)
+                //.and_modify(|val| *val += _amountToken2);
             Ok(amountToken1)
         }
     }
